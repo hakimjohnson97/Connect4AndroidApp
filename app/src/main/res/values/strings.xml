@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">ConnectFour</string>
+
+    <string name="NAME_PREFIX">Name:</string>
+    <string name="ERROR_CREATING_GAME">Error creating game, please try again.</string>
+    <string name="NAME_TAKEN">Sorry, that name is already taken.</string>
+    <string name="CHALLENGE_DECLINED">Your challenge was declined.</string>
+    <string name="PLAYER_NOT_FOUND">Player not found.</string>
+    <string name="CHALLENGED1">You have been challenged by </string>
+    <string name="CHALLENGED2">. Do you accept?</string>
+
+</resources>

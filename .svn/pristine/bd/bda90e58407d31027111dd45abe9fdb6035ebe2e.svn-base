@@ -1,0 +1,41 @@
+package com.example.hakimjohnson97.connectfour;
+
+/**
+ * Created by hakimjohnson97 on 4/20/17.
+ */
+
+public class Connect4Model {
+    public enum Color {EMPTY, RED, YELLOW};
+
+    public static final int BOARD_WIDTH = 7;
+    public static final int BOARD_HEIGHT = 6;
+
+    private Color board[][];
+
+    public Connect4Model() {
+
+        board = new Color[BOARD_WIDTH][BOARD_HEIGHT];
+        for (int i = 0; i < BOARD_WIDTH; i++) {
+            for (int j = 0; j < BOARD_HEIGHT; j++) {
+                board[i][j] = Color.EMPTY;
+            }
+        }
+
+    }
+
+    public Color[][] getBoard() {
+        return board;
+    }
+
+    int addBall(int col, Color color)//first column is 0
+    {
+        for (int i = 0; i < BOARD_HEIGHT; i++) {
+            if (board[col][i] == Color.EMPTY) {
+                board[col][i] = color;
+                return i;
+            }
+        }
+        return -1; //Error
+    }
+
+}

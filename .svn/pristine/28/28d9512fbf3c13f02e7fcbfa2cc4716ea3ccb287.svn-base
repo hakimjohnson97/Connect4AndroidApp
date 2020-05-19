@@ -1,0 +1,245 @@
+package com.example.hakimjohnson97.connectfour;
+
+import android.content.Context;
+import android.content.res.Resources;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Point;
+import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
+import android.support.annotation.Nullable;
+import android.util.AttributeSet;
+import android.util.Log;
+import android.view.MotionEvent;
+import android.view.View;
+
+/**
+ * Created by hakimjohnson97 on 4/21/17.
+ */
+
+public class Connect4View extends View {
+
+    private Connect4Model mModel;
+    private Connect4Controller mController;
+
+    private Context mContext;
+    private Paint mBoardPaint;
+    private Paint mNameTextPaint;
+    private Paint mScoreTextPaint;
+    private Paint mTurnLinePaint;
+    private Paint mWinPaint;
+
+    private float bottomLeftX;
+    private float bottomLeftY;
+    private float gridWidth;
+    private float gridHeight;
+
+    private float player1PosX;
+    private float player2PosX;
+    private float centerPos;
+
+    private Rect mBoardRect;
+    private Rect mPlayAgainRect;
+
+    private static final float BALL_PADDING_RATIO = 0.1f;
+    private static final int TEXT_PADDING = 30;
+    private static final int TURN_LINE_LENGTH = 100;
+    private static final int TURN_LINE_HEIGHT = 23;
+
+    private static final int PLAY_AGAIN_BUTTON_WIDTH = 212;
+    private static final int PLAY_AGAIN_BUTTON_HEIGHT = 58;
+
+    private static final int BACKGROUND_COLOR = 0xFF3399FF;
+
+
+    public Connect4View(Context context, @Nullable AttributeSet attrs) {
+
+        super(context, attrs);
+        mContext = context;
+
+        setBackgroundColor(BACKGROUND_COLOR);
+      //  setBackgroundColor(Color.BLUE);
+
+        //Sets up the paint specs
+        mBoardPaint = new Paint();
+        mBoardPaint.setAntiAlias(true);
+        mBoardPaint.setColor(Color.RED);
+        mBoardPaint.setStyle(Paint.Style.FILL);
+        mBoardPaint.setStrokeJoin(Paint.Join.ROUND);
+        mBoardPaint.setStrokeWidth(4f);
+
+        mNameTextPaint = new Paint();
+        mNameTextPaint.setColor(Color.WHITE);
+        mNameTextPaint.setTextSize(60);
+        mNameTextPaint.setTextAlign(Paint.Align.CENTER);
+
+        mScoreTextPaint = new Paint();
+        mScoreTextPaint.setColor(Color.WHITE);
+        mScoreTextPaint.setTextSize(125);
+        mScoreTextPaint.setTextAlign(Paint.Align.CENTER);
+
+        mTurnLinePaint = new Paint();
+        mBoardPaint.setColor(Color.RED);
+
+        mWinPaint = new Paint();
+        mWinPaint.setColor(Color.BLACK);
+        mWinPaint.setStrokeJoin(Paint.Join.ROUND);
+        mWinPaint.setStrokeWidth(7f);
+
+    }
+
+    public void setModel(Connect4Model model) {
+        mModel = model;
+    }
+
+    public void setController(Connect4Controller controller) {
+        mController = controller;
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+
+        player1PosX = w/4;
+        centerPos = w/2;
+        player2PosX = (3*w)/4;
+
+
+        bottomLeftX = 0;
+        bottomLeftY = h;
+        gridWidth = w/ Connect4Model.BOARD_WIDTH;
+        gridHeight = gridWidth;
+
+        mPlayAgainRect = new Rect( (int)centerPos - PLAY_AGAIN_BUTTON_WIDTH/2,
+                (int)( bottomLeftY - gridHeight*Connect4Model.BOARD_HEIGHT - PLAY_AGAIN_BUTTON_HEIGHT - TEXT_PADDING ),
+                (int)centerPos + PLAY_AGAIN_BUTTON_WIDTH/2,
+                (int)( bottomLeftY - gridHeight*Connect4Model.BOARD_HEIGHT) - TEXT_PADDING);
+
+        mBoardRect = new Rect(0, (int)(h - gridHeight*Connect4Model.BOARD_HEIGHT), w, h);
+
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+
+        if (mModel == null) {
+            return;
+        }
+
+        drawBoard(canvas);
+        drawScoreText(canvas);
+        drawWinningMove(canvas);
+        drawPlayAgainButton(canvas);
+    }
+
+    private void drawBoard(Canvas canvas) {
+        Connect4Model.Color board[][] = mModel.getBoard();
+
+        for (int i = 0; i < Connect4Model.BOARD_WIDTH; i++) {
+            for (int j = 0; j < Connect4Model.BOARD_HEIGHT; j++) {
+                if (board[i][j] == Connect4Model.Color.EMPTY) {
+                    mBoardPaint.setColor(Color.WHITE);
+                }
+                else if (board[i][j] == Connect4Model.Color.RED) {
+                    mBoardPaint.setColor(Color.RED);
+                }
+                else if (board[i][j] == Connect4Model.Color.YELLOW) {
+                    mBoardPaint.setColor(Color.YELLOW);
+                }
+
+                canvas.drawOval(bottomLeftX + (gridWidth*(i+ BALL_PADDING_RATIO)), bottomLeftY - (gridHeight*(j+1- BALL_PADDING_RATIO)),
+                        bottomLeftX + (gridWidth*(i+1- BALL_PADDING_RATIO)), bottomLeftY - (gridHeight*(j+ BALL_PADDING_RATIO)), mBoardPaint);
+            }
+        }
+
+    }
+
+    private void drawScoreText(Canvas canvas) {
+
+        int nameHeight = getTextRect(mModel.getPlayer1Name(), mNameTextPaint).height() + TEXT_PADDING;
+        canvas.drawText(mModel.getPlayer1Name(), player1PosX, nameHeight, mNameTextPaint);
+        canvas.drawText(mModel.getPlayer2Name(), player2PosX, nameHeight, mNameTextPaint);
+
+        int scoreHeight = nameHeight + getTextRect("0", mScoreTextPaint).height() + TEXT_PADDING;
+        canvas.drawText(Integer.toString(mModel.getPlayer1Score()),  player1PosX, scoreHeight, mScoreTextPaint);
+        canvas.drawText(Integer.toString(mModel.getPlayer2Score()),  player2PosX, scoreHeight, mScoreTextPaint);
+        canvas.drawText("-",  centerPos, scoreHeight, mScoreTextPaint);
+
+        if (mModel.getPlayerTurn() == Connect4Model.PLAYER_1) {
+            mTurnLinePaint.setColor(Color.RED);
+            canvas.drawRect(player1PosX - TURN_LINE_LENGTH/2, scoreHeight + TEXT_PADDING, player1PosX + TURN_LINE_LENGTH/2,
+                    scoreHeight + TEXT_PADDING + TURN_LINE_HEIGHT, mTurnLinePaint);
+        }
+        else {
+            mTurnLinePaint.setColor(Color.YELLOW);
+            canvas.drawRect(player2PosX - TURN_LINE_LENGTH/2, scoreHeight + TEXT_PADDING, player2PosX + TURN_LINE_LENGTH/2,
+                    scoreHeight + TEXT_PADDING + TURN_LINE_HEIGHT, mTurnLinePaint);
+        }
+    }
+
+    private void drawWinningMove(Canvas canvas) {
+
+        if (mModel.hasWinner() == true) {
+            Connect4Model.WinningMove winningMove = mModel.getWinningMove();
+            if (winningMove != null) {
+                canvas.drawLine(bottomLeftX + gridWidth * (winningMove.startPos.x + 0.5f),
+                        bottomLeftY - gridWidth * (winningMove.startPos.y + 0.5f),
+                        bottomLeftX + gridWidth * (winningMove.endPos.x + 0.5f),
+                        bottomLeftY - gridWidth * (winningMove.endPos.y + 0.5f),
+                        mWinPaint);
+            }
+        }
+    }
+
+    private void drawPlayAgainButton(Canvas canvas) {
+
+        if (mModel.hasWinner()) {
+            Drawable buttonImage = getResources().getDrawable(R.drawable.play_again_button, null);
+            buttonImage.setBounds(mPlayAgainRect);
+            buttonImage.draw(canvas);
+        }
+    }
+
+    private Rect getTextRect(String text, Paint painter) {
+
+        Rect rect = new Rect();
+        painter.getTextBounds(text, 0, text.length(), rect);
+        return rect;
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        float x = event.getX();
+        float y = event.getY();
+
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+
+        }
+        else if (event.getAction() == MotionEvent.ACTION_MOVE) {
+
+        }
+        else if (event.getAction() == MotionEvent.ACTION_UP) {
+
+            if (mBoardRect.contains((int)x, (int)y)) {
+                int column = (int) (x / gridWidth);
+                if (column == Connect4Model.BOARD_WIDTH) {
+                    column--;
+                }
+                mController.userTouchedScreen(column);
+            }
+
+            else if (mModel.hasWinner() && mPlayAgainRect.contains((int)x, (int)y)) {
+                mController.userClickedPlayAgain();
+            }
+        }
+        else {
+            return false;
+        }
+
+        invalidate();
+
+        return true;
+    }
+}

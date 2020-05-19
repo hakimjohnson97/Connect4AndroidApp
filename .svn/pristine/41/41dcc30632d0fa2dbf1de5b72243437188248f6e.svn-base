@@ -1,0 +1,10 @@
+package com.example.hakimjohnson97.connectfour;
+
+/**
+ * Created by hakimjohnson97 on 4/23/17.
+ */
+
+public interface StringListener {
+    // you can define any parameter as per your requirement
+    public void callback(String message);
+}

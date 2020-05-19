@@ -1,0 +1,361 @@
+package com.example.hakimjohnson97.connectfour;
+
+import android.content.Intent;
+import android.util.Log;
+
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+
+/**
+ * Created by hakimjohnson97 on 4/23/17.
+ */
+
+public class MultiplayerHandler {
+
+    private String mPlayerName;
+
+    private static final String NONE = "none";
+    private static final String EXTRA_GAME = "GAME";
+    private static final String EXTRA_NAME = "NAME";
+    private static final String EXTRA_PLAYER_NUMBER = "PLAYER_NUMBER";
+
+    public static final String MATCHMAKER = "matchmaker";
+    public static final String GAMES = "games";
+
+    public static final String MOVES = "moves";
+    public static final String END_GAME = "endGame";
+    public static final String PLAY_AGAIN = "playAgain";
+
+    public static final String CANCEL_CHALLENGE = "Cancel";
+    public static final String DECLINE_CHALLENGE = "No";
+
+    public static final String PLAYER_1 = "player1";
+    public static final String PLAYER_2 = "player2";
+
+    public static final String SUCCESS = "success";
+    public static final String FAILURE = "failure";
+
+
+
+
+    private FirebaseDatabase database;
+    private DatabaseReference mMatchmaker;
+    private DatabaseReference mGamesReference;
+
+    private DatabaseReference mCurrentGameReference;
+    private DatabaseReference mMovesReference;
+    private DatabaseReference mCurrentChallengeReference;
+
+
+    private boolean mPlayerNumber;
+    private boolean mGameHasEnded = false;
+    private boolean mChallengeCancelled = false;
+
+    private StringListener mEndGameListener;
+
+    public MultiplayerHandler() {
+
+        database = FirebaseDatabase.getInstance();
+        mMatchmaker = database.getReference(MATCHMAKER);
+        mGamesReference = database.getReference(GAMES);
+
+    }
+
+    public MultiplayerHandler(String playerName) {
+
+        this();
+
+        mPlayerName = playerName;
+    }
+
+    public void cancelChallenge() {
+        mCurrentChallengeReference.setValue(CANCEL_CHALLENGE);
+        mChallengeCancelled = true;
+    }
+
+    public void cancelMatchmaking() {
+        mCurrentGameReference.removeValue();
+        mMatchmaker.setValue(NONE);
+    }
+
+    public void challengePlayer(DatabaseReference challengesRef, final StringListener listener) {
+
+        mChallengeCancelled = false;
+
+        mCurrentChallengeReference = challengesRef.push();
+        mCurrentChallengeReference.setValue(mPlayerName);
+
+        mCurrentChallengeReference.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                String value = dataSnapshot.getValue(String.class);
+                if (value.equals(mPlayerName)) {
+                    return;
+                }
+
+                if (value.equals(DECLINE_CHALLENGE)) {
+                    listener.callback(DECLINE_CHALLENGE);
+                }
+                else if (mChallengeCancelled == false) {
+
+                    joinGame(value, listener);
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
+
+    }
+
+    /**
+     * This function is the callback of the "Find Match" button.   This function reads the current
+     * value of the matchmaker storage location to determine if it thinks that we're the first arriver
+     * or the second.
+     *
+     */
+    public void findMatch(final StringListener listener) {
+
+        mMatchmaker.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                final String matchmaker = dataSnapshot.getValue(String.class);
+
+                if (matchmaker.equals(NONE)) {
+                    createGame(mMatchmaker, listener);
+                }
+                else {
+                    mMatchmaker.setValue(NONE);
+                    joinGame(matchmaker, listener);
+                   // listener.callback("success");
+                }
+
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
+    }
+
+    /**
+     * The first arriver needs to create the game, add themselves to it, and then atomically
+     * (i.e., using a transaction) verify that no one else has posted a game yet and post the game.
+     * If it fails to post the game, it destroys the game.
+     */
+    public void createGame(DatabaseReference gameStored, final StringListener listener) {
+
+        String matchmaker;
+        final DatabaseReference dbReference = mGamesReference.push();
+        mCurrentGameReference = dbReference;
+
+        dbReference.child(PLAYER_1).setValue(mPlayerName);
+        matchmaker = dbReference.getKey();
+
+        gameStored.setValue(matchmaker);
+
+        mCurrentGameReference.addChildEventListener(new ChildEventListener() {
+            @Override
+            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+
+                String name = dataSnapshot.getValue(String.class);
+
+                if (!name.equals(mPlayerName)) {
+                    mPlayerNumber = Connect4Model.PLAYER_1;
+
+                    listener.callback(SUCCESS);
+                    mCurrentGameReference.removeEventListener(this);
+                }
+            }
+
+            @Override
+            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+            }
+
+            @Override
+            public void onChildRemoved(DataSnapshot dataSnapshot) {
+
+            }
+
+            @Override
+            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
+    }
+
+    /**
+     * The second arriver needs atomically (i.e., with a transcation) verify that the game is
+     * still available to join and then remove the game from the matchmaker.  It then adds
+     * itself to the game, so that player0 gets a notification that the game was joined.
+     * @param matchmaker
+     */
+    private void joinGame(final String matchmaker, final StringListener listener) {
+
+        mCurrentGameReference = mGamesReference.child(matchmaker);
+        mCurrentGameReference.child(MOVES).setValue("-1");
+        mCurrentGameReference.child(END_GAME).setValue("false");
+        mCurrentGameReference.child(PLAY_AGAIN).setValue("");
+        mCurrentGameReference.child(PLAYER_2).setValue(mPlayerName);
+        mPlayerNumber = Connect4Model.PLAYER_2;
+        listener.callback(SUCCESS);
+
+    }
+
+    public void putExtrasInIntent(Intent intent) {
+
+        intent.putExtra(EXTRA_GAME, mCurrentGameReference.getKey());
+        intent.putExtra(EXTRA_NAME, mPlayerName);
+        intent.putExtra(EXTRA_PLAYER_NUMBER, mPlayerNumber);
+    }
+
+    public void takeExtrasInIntent(Intent intent) {
+        Log.d("BLAH", intent.getStringExtra(EXTRA_GAME));
+        mCurrentGameReference = mGamesReference.child(intent.getStringExtra(EXTRA_GAME));
+        mPlayerName = intent.getStringExtra(EXTRA_NAME);
+        mPlayerNumber = intent.getBooleanExtra(EXTRA_PLAYER_NUMBER, false);
+    }
+
+    public boolean getPlayerNumber() {
+        return mPlayerNumber;
+    }
+
+    public void setEndGameListener(StringListener endGameListener) {
+        mEndGameListener = endGameListener;
+    }
+
+    public void startGame(final StringListener movesListener, final StringListener playAgainListener) {
+        mMovesReference = mCurrentGameReference.child(MOVES);
+       // mMovesReference.setValue(-1);
+
+        mMovesReference.addChildEventListener(new ChildEventListener() {
+            @Override
+            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                String message =  dataSnapshot.getValue(String.class);
+                movesListener.callback(message);
+            }
+
+            @Override
+            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+            }
+
+            @Override
+            public void onChildRemoved(DataSnapshot dataSnapshot) {
+
+            }
+
+            @Override
+            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
+
+        mCurrentGameReference.child(PLAY_AGAIN).addChildEventListener(new ChildEventListener() {
+            @Override
+            public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                playAgainListener.callback(dataSnapshot.getValue(String.class));
+            }
+
+            @Override
+            public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
+            }
+
+            @Override
+            public void onChildRemoved(DataSnapshot dataSnapshot) {
+
+            }
+
+            @Override
+            public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
+
+        mCurrentGameReference.child(END_GAME).addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+
+                if (!mGameHasEnded) {
+                    if (dataSnapshot.getValue(String.class).equals("true")) {
+                        mCurrentGameReference.child(END_GAME).removeEventListener(this);
+
+                        mCurrentGameReference.removeValue();
+
+                        mEndGameListener.callback("");
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
+
+    }
+
+    public void sendMove(String move) {
+        mMovesReference.push().setValue(move);
+    }
+
+    public void playAgainPressed() {
+        mCurrentGameReference.child(PLAY_AGAIN).push().setValue(mPlayerName);
+    }
+
+    public void endGame() {
+        mGameHasEnded = true;
+        mCurrentGameReference.child(END_GAME).setValue("true");
+
+    }
+
+    public String getUserName() {
+        return mPlayerName;
+    }
+
+    public void getOpponentName(final StringListener callback) {
+
+        String opponentString;
+        if (mPlayerNumber == Connect4Model.PLAYER_1) {
+            opponentString = PLAYER_2;
+        }
+        else {
+            opponentString = PLAYER_1;
+        }
+        mCurrentGameReference.child(opponentString).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                callback.callback(dataSnapshot.getValue(String.class));
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
+    }
+}

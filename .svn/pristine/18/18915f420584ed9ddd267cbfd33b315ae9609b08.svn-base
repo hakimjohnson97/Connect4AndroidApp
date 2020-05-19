@@ -1,0 +1,292 @@
+package com.example.hakimjohnson97.connectfour;
+
+import android.graphics.Point;
+
+/**
+ * Created by hakimjohnson97 on 4/20/17.
+ */
+
+public class Connect4Model {
+    public enum Color {EMPTY, RED, YELLOW};
+
+    final static boolean PLAYER_1 = false;
+    final static boolean PLAYER_2 = true;
+
+    public static final int MOVES_TO_WIN = 4;
+
+    public static final int BOARD_WIDTH = 7;
+    public static final int BOARD_HEIGHT = 6;
+
+    private Color mBoard[][];
+    private WinningMove mWinningMove = null;
+    private boolean mIsGameOver = false;
+
+    private int player1Score;
+    private int player2Score;
+    private String player1Name;
+    private String player2Name;
+
+    private boolean mPlayerTurn;
+
+    public class WinningMove {
+        public Color winner;
+        public Point startPos = new Point();
+        public Point endPos = new Point();
+    }
+
+    public Connect4Model() {
+
+        mBoard = new Color[BOARD_WIDTH][BOARD_HEIGHT];
+        for (int i = 0; i < BOARD_WIDTH; i++) {
+            for (int j = 0; j < BOARD_HEIGHT; j++) {
+                mBoard[i][j] = Color.EMPTY;
+            }
+        }
+
+        mPlayerTurn = PLAYER_1;
+        player1Name = "Player 1";
+        player2Name = "Player 2";
+
+    }
+
+    public boolean getPlayerTurn() {
+        return mPlayerTurn;
+    }
+
+    public void nextPlayerTurn() {
+        mPlayerTurn = !mPlayerTurn;
+    }
+
+    public Color[][] getBoard() {
+        return mBoard;
+    }
+
+    public WinningMove getWinningMove() {
+        return mWinningMove;
+    }
+
+    public boolean hasWinner() {
+        return mIsGameOver;
+    }
+
+    public int getPlayer1Score() {
+        return player1Score;
+    }
+
+    public int getPlayer2Score() {
+        return player2Score;
+    }
+
+    public String getPlayer1Name() {
+        return player1Name;
+    }
+
+    public String getPlayer2Name() {
+        return player2Name;
+    }
+
+    public void setPlayer1Name(String player1Name) {
+        this.player1Name = player1Name;
+    }
+
+    public void setPlayer2Name(String player2Name) {
+        this.player2Name = player2Name;
+    }
+
+    public int addBall(int col, Color color)//first column is 0
+    {
+        for (int i = 0; i < BOARD_HEIGHT; i++) {
+            if (mBoard[col][i] == Color.EMPTY) {
+                mBoard[col][i] = color;
+                return i;
+            }
+        }
+        return -1; //Error
+    }
+
+    public boolean checkForWinner()
+    {
+        int i, j, count;
+        Color precolor;
+
+        mWinningMove = new WinningMove();
+
+        //Check horizontally
+        i = 0; j = 0; precolor = Color.EMPTY; count = 0;
+        for (i = 0; i < BOARD_HEIGHT; i++)    {
+            for (j = 0; j < BOARD_WIDTH; j++)    {
+                if (mBoard[j][i] == precolor && mBoard[j][i] != Color.EMPTY) {
+                    count++;
+                    if (count >= MOVES_TO_WIN-1) {
+                        setupWinningMove(j, i, precolor);
+                        return true;
+                    }
+                }
+                else {
+                    count = 0;
+                    mWinningMove.startPos.set(j, i);
+                }
+                precolor = mBoard[j][i];
+            }
+            precolor = Color.EMPTY;
+            count = 0;
+        }
+
+        //Check vertically
+        i = 0; j = 0; precolor = Color.EMPTY; count = 0;
+        for (j = 0; j < BOARD_WIDTH; j++)    {
+            for (i = 0; i < BOARD_HEIGHT; i++)    {
+                if (mBoard[j][i] == precolor && mBoard[j][i] != Color.EMPTY) {
+                    count++;
+                    if (count >= MOVES_TO_WIN-1) {
+                        setupWinningMove(j, i, precolor);
+                        return true;
+                    }
+                }
+                else {
+                    count = 0;
+                    mWinningMove.startPos.set(j, i);
+                }
+                precolor = mBoard[j][i];
+            }
+            precolor = Color.EMPTY;
+            count = 0;
+        }
+
+
+
+        //Check diagonally to the right
+        i = 0; j = 0; precolor = Color.EMPTY; count = 0;
+        for (i = BOARD_HEIGHT-1; i >= 0; i--)    {
+            for (j = 0; (j < BOARD_WIDTH && (i+j) < BOARD_HEIGHT); j++)    {
+                if (mBoard[j][i+j] == precolor && mBoard[j][i+j] != Color.EMPTY) {
+                    count++;
+                    if (count >= MOVES_TO_WIN-1) {
+                        setupWinningMove(j, i+j, precolor);
+                        return true;
+                    }
+                }
+                else {
+                    count = 0;
+                    mWinningMove.startPos.set(j, i+j);
+                }
+                precolor = mBoard[j][i+j];
+            }
+            precolor = Color.EMPTY;
+            count = 0;
+        }
+        i = 0; j = 0; precolor = Color.EMPTY; count = 0;
+        for (j = 1; j < BOARD_WIDTH; j++)    {
+            for (i = 0; (i < BOARD_HEIGHT && (i+j) < BOARD_WIDTH); i++)    {
+                if (mBoard[j+i][i] == precolor && mBoard[j+i][i] != Color.EMPTY) {
+                    count++;
+                    if (count >= MOVES_TO_WIN-1) {
+                        setupWinningMove(j+i, i, precolor);
+                        return true;
+                    }
+                }
+                else {
+                    count = 0;
+                    mWinningMove.startPos.set(j+i, i);
+                }
+                precolor = mBoard[j+i][i];
+            }
+            precolor = Color.EMPTY;
+            count = 0;
+        }
+
+        //Check diagonally to the left
+        i = 0; j = 0; precolor = Color.EMPTY; count = 0;
+        for (i = BOARD_HEIGHT-1; i >= 0; i--)    {
+            for (j = 0; (j < BOARD_WIDTH && (i+j) < BOARD_HEIGHT); j++)    {
+                if (mBoard[BOARD_WIDTH-1-j][i+j] == precolor && mBoard[BOARD_WIDTH-1-j][i+j] != Color.EMPTY) {
+                    count++;
+                    if (count >= MOVES_TO_WIN-1) {
+                        setupWinningMove(BOARD_WIDTH-1-j, i+j, precolor);
+                        return true;
+                    }
+                }
+                else {
+                    count = 0;
+                    mWinningMove.startPos.set(BOARD_WIDTH-1-j, i+j);
+                }
+                precolor = mBoard[BOARD_WIDTH-1-j][i+j];
+            }
+            count = 0;
+            precolor = Color.EMPTY;
+        }
+        i = 0; j = 0; precolor = Color.EMPTY; count = 0;
+        for (j = BOARD_WIDTH-2; j >= 0; j--)    {
+            for (i = 0; (i < BOARD_HEIGHT && (j-i) >= 0); i++)    {
+                if (mBoard[j-i][i] == precolor && mBoard[j-i][i] != Color.EMPTY) {
+                    count++;
+                    if (count >= MOVES_TO_WIN-1) {
+                        setupWinningMove(j-i, i, precolor);
+                        return true;
+                    }
+                }
+                else {
+                    count = 0;
+                    mWinningMove.startPos.set(j-i, i);
+                }
+                precolor = mBoard[j-i][i];
+            }
+            precolor = Color.EMPTY;
+            count = 0;
+        }
+
+        mWinningMove = null;
+
+        if (isBoardFull()) {
+            mIsGameOver = true;
+            return true;
+        }
+
+        return false;
+
+
+    }
+
+    public boolean isBoardFull() {
+
+        for (int i = 0; i < BOARD_WIDTH; i++) {
+            for (int j = 0; j < BOARD_HEIGHT; j++) {
+                if (mBoard[i][j] == Color.EMPTY) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public void setupWinningMove(int x, int y, Color winner) {
+        mWinningMove.endPos.set(x, y);
+        mIsGameOver = true;
+        if (winner == Color.RED) {
+            player1Score++;
+        } else {
+            player2Score++;
+        }
+    }
+
+    public void reset() {
+        for (int i = 0; i < BOARD_WIDTH; i++) {
+            for (int j = 0; j < BOARD_HEIGHT; j++) {
+                mBoard[i][j] = Color.EMPTY;
+            }
+        }
+
+        mWinningMove = null;
+        mIsGameOver = false;
+
+        if ((player1Score+player2Score) % 2 == 0) {
+            mPlayerTurn = PLAYER_1;
+        }
+        else {
+            mPlayerTurn = PLAYER_2;
+        }
+
+    }
+
+}

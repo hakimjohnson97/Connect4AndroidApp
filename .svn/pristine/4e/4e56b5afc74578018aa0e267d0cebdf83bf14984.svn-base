@@ -1,0 +1,78 @@
+package com.example.hakimjohnson97.connectfour;
+
+import android.util.Log;
+
+/**
+ * Created by hakimjohnson97 on 4/21/17.
+ */
+
+public class Connect4Controller {
+
+    public enum OpponentType {HOTSEAT, BOT, ONLINE};
+
+    final static boolean PLAYER_1 = false;
+    final static boolean PLAYER_2 = true;
+
+    private Connect4Model mModel;
+    private Connect4View mView;
+
+    private boolean mPlayerTurn;
+    private boolean mPlayerNumber;
+    private OpponentType mOpponentType;
+    private FirebaseMultiplayerHandler mMpHandler;
+
+    public Connect4Controller(Connect4Model model, Connect4View view, OpponentType opponentType) {
+
+        mModel = model;
+        mView = view;
+
+        mPlayerTurn = PLAYER_1;
+        mOpponentType = opponentType;
+
+    }
+
+    public void setFirebaseMultiplayerHandler(FirebaseMultiplayerHandler mpHandler) {
+        mMpHandler = mpHandler;
+        mPlayerNumber = mpHandler.getPlayerNumber();
+        mpHandler.startGame(new MyListener() {
+            @Override
+            public void callback(String message) {
+                if (mPlayerTurn != mPlayerNumber) {
+                    int column = Integer.parseInt(message);
+                    mModel.addBall(column, Connect4Model.Color.YELLOW);
+                    mView.invalidate();
+
+                }
+                mPlayerTurn = ! mPlayerTurn;
+            }
+        });
+    }
+
+    public void userTouchedScreen(int column) {
+        if (mPlayerTurn == mPlayerNumber) {
+            mModel.addBall(column, Connect4Model.Color.RED);
+            if (mOpponentType == OpponentType.ONLINE) {
+                mMpHandler.sendMove(Integer.toString(column));
+            }
+            else {
+                mPlayerTurn = !mPlayerTurn;
+            }
+        }
+        else  {
+            if (mOpponentType == OpponentType.HOTSEAT) {
+                mModel.addBall(column, Connect4Model.Color.YELLOW);
+                mPlayerTurn = !mPlayerTurn;
+            }
+        }
+
+        mView.invalidate();
+    }
+
+    public void endGame() {
+        if (mOpponentType == OpponentType.ONLINE) {
+            mMpHandler.endGame();
+        }
+    }
+
+
+}

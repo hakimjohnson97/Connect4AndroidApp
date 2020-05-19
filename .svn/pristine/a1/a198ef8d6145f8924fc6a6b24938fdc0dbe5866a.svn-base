@@ -1,0 +1,190 @@
+package com.example.hakimjohnson97.connectfour;
+
+import android.os.AsyncTask;
+import android.util.Log;
+
+/**
+ * Created by hakimjohnson97 on 4/21/17.
+ */
+
+public class Connect4Controller {
+
+    public enum OpponentType {HOTSEAT, BOT, ONLINE};
+
+    private Connect4Model mModel;
+    private Connect4View mView;
+
+    private boolean mPlayerNumber;
+    private OpponentType mOpponentType;
+    private MultiplayerHandler mMpHandler;
+    private Connect4Bot mBot;
+
+    private boolean mUserPlayAgainPressed = false;
+    private boolean mOpponentPlayAgainPressed = false;
+
+    public Connect4Controller(Connect4Model model, Connect4View view, OpponentType opponentType) {
+
+        mModel = model;
+        mView = view;
+        mOpponentType = opponentType;
+        mPlayerNumber = Connect4Model.PLAYER_1;
+
+        if (mOpponentType == OpponentType.BOT) {
+            mBot = new Connect4Bot();
+        }
+    }
+
+    public void setFirebaseMultiplayerHandler(MultiplayerHandler mpHandler) {
+
+        mMpHandler = mpHandler;
+        mPlayerNumber = mpHandler.getPlayerNumber();
+
+        final StringListener movesListener = new StringListener() {
+            @Override
+            public void callback(String message) {
+                if (mModel.getPlayerTurn() != mPlayerNumber) {
+                    int column = Integer.parseInt(message);
+                    mModel.addBall(column, Connect4Model.Color.YELLOW);
+                    mModel.checkForWinner();
+                    mView.invalidate();
+
+                }
+                nextPlayerTurn();
+            }
+        };
+
+        final StringListener playAgainListener = new StringListener() {
+            @Override
+            public void callback(String message) {
+                if (mModel.hasWinner()) {
+                    if (message.equals(mModel.getPlayer2Name())) {
+                        mOpponentPlayAgainPressed = true;
+                        Log.d("BLAH", "Opponent clicked play again\n");
+                    }
+                    else if (message.equals(mModel.getPlayer1Name())) {
+                        mUserPlayAgainPressed = true;
+                    }
+
+                    if (mUserPlayAgainPressed && mOpponentPlayAgainPressed) {
+                        mModel.reset();
+                        mView.invalidate();
+                        mOpponentPlayAgainPressed = false;
+                        mUserPlayAgainPressed = false;
+                    }
+
+                }
+            }
+        };
+
+        mModel.setPlayer1Name(mMpHandler.getUserName());
+
+        mMpHandler.getOpponentName(new StringListener() {
+            @Override
+            public void callback(String message) {
+                mModel.setPlayer2Name(message);
+                mView.invalidate();
+            }
+        });
+
+        mpHandler.startGame(movesListener, playAgainListener);
+    }
+
+    public void userTouchedScreen(int column) {
+
+        if (mModel.hasWinner()) {
+            return;
+        }
+
+        if (mModel.getPlayerTurn() == mPlayerNumber) {
+
+            mModel.addBall(column, Connect4Model.Color.RED);
+
+            mModel.checkForWinner();
+
+            if (mOpponentType == OpponentType.ONLINE) {
+                mMpHandler.sendMove(Integer.toString(column));
+            }
+            else if (mOpponentType == OpponentType.BOT && !mModel.hasWinner()) {
+                new BotAsyncTask().execute(mModel.getBoard());
+                nextPlayerTurn();
+            }
+            else {
+                nextPlayerTurn();
+            }
+        }
+        else  {
+            if (mOpponentType == OpponentType.HOTSEAT) {
+                mModel.addBall(column, Connect4Model.Color.YELLOW);
+                nextPlayerTurn();
+            }
+
+            mModel.checkForWinner();
+        }
+
+        mView.invalidate();
+    }
+    
+    public void userClickedPlayAgain() {
+
+        if (mOpponentType == OpponentType.ONLINE) {
+            mMpHandler.playAgainPressed();
+        }
+        else {
+            mModel.reset();
+            if (mOpponentType == OpponentType.BOT && mModel.getPlayerTurn() != mPlayerNumber) {
+                new BotAsyncTask().execute(mModel.getBoard());
+            }
+        }
+        mView.invalidate();
+    }
+
+    public void endGame() {
+        if (mOpponentType == OpponentType.ONLINE) {
+            mMpHandler.endGame();
+        }
+    }
+
+    private void nextPlayerTurn() {
+        mModel.nextPlayerTurn();
+        mView.invalidate();
+    }
+
+
+    public class BotAsyncTask extends AsyncTask<Connect4Model.Color[][], Void, Integer> {
+
+        @Override
+        protected Integer doInBackground(Connect4Model.Color[][] ... params) {
+
+            byte board[][] = new byte[Connect4Model.BOARD_WIDTH][Connect4Model.BOARD_HEIGHT];
+
+            for (int i = 0; i < Connect4Model.BOARD_WIDTH; i++) {
+                for (int j = 0; j < Connect4Model.BOARD_HEIGHT; j++) {
+                    if (params[0][i][j] == Connect4Model.Color.EMPTY) {
+                        board[i][j] = Connect4Bot.EMPTY;
+                    }
+                    else {
+                        board[i][j] = (params[0][i][j] == Connect4Model.Color.RED ? Connect4Bot.YELLOW : Connect4Bot.RED);
+                    }
+                }
+            }
+
+            return mBot.getNextMove(board);
+
+        }
+
+
+        @Override
+        protected void onPostExecute(Integer move) {
+
+            mModel.addBall(move, Connect4Model.Color.YELLOW);
+
+            nextPlayerTurn();
+            mModel.checkForWinner();
+            mView.invalidate();
+
+        }
+
+    }
+
+
+}
